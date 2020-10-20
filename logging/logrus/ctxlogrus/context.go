@@ -3,7 +3,7 @@ package ctxlogrus
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/rkollar/go-grpc-middleware/tags"
 	"github.com/sirupsen/logrus"
 )
 

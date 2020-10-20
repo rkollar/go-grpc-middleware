@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	grpc_zap "github.com/rkollar/go-grpc-middleware/logging/zap"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
 	"go.uber.org/zap/zapcore"
 )
 

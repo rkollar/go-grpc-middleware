@@ -1,8 +1,8 @@
 package ratelimit_test
 
 import (
-	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/ratelimit"
+	"github.com/rkollar/go-grpc-middleware"
+	"github.com/rkollar/go-grpc-middleware/ratelimit"
 	"google.golang.org/grpc"
 )
 

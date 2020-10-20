@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	grpc_logging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
+	grpc_logging "github.com/rkollar/go-grpc-middleware/logging"
 	"google.golang.org/grpc/codes"
 )
 

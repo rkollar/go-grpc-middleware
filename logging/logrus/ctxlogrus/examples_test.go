@@ -3,8 +3,8 @@ package ctxlogrus_test
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/rkollar/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/rkollar/go-grpc-middleware/tags"
 )
 
 // Simple unary handler that adds custom fields to the requests's context. These will be used for all log statements.

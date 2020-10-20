@@ -3,9 +3,9 @@ package ctxkit_test
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/kit/ctxkit"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	"github.com/rkollar/go-grpc-middleware/logging/kit/ctxkit"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
 )
 
 // Simple unary handler that adds custom fields to the requests's context. These will be used for all log statements.

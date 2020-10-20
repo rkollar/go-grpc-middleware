@@ -6,7 +6,7 @@ package grpc_auth
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/rkollar/go-grpc-middleware"
 	"google.golang.org/grpc"
 )
 

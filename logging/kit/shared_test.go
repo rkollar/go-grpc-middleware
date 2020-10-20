@@ -6,15 +6,15 @@ import (
 	"io"
 	"testing"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/kit/ctxkit"
+	"github.com/rkollar/go-grpc-middleware/logging/kit/ctxkit"
 
 	"context"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	grpc_testing "github.com/grpc-ecosystem/go-grpc-middleware/testing"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
+	grpc_testing "github.com/rkollar/go-grpc-middleware/testing"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
 )
 
 var (

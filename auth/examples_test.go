@@ -9,8 +9,8 @@ import (
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
 	"google.golang.org/grpc/status"
 
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_auth "github.com/rkollar/go-grpc-middleware/auth"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
 )
 
 func parseToken(token string) (struct{}, error) {

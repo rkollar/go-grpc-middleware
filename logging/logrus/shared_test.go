@@ -7,11 +7,11 @@ import (
 	"io"
 	"testing"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	grpc_testing "github.com/grpc-ecosystem/go-grpc-middleware/testing"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	grpc_logrus "github.com/rkollar/go-grpc-middleware/logging/logrus"
+	"github.com/rkollar/go-grpc-middleware/logging/logrus/ctxlogrus"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
+	grpc_testing "github.com/rkollar/go-grpc-middleware/testing"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 )

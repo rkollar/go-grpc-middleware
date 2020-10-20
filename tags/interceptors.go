@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/rkollar/go-grpc-middleware"
 )
 
 // UnaryServerInterceptor returns a new unary server interceptors that sets the values for request tags.

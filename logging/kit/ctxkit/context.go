@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
 )
 
 type ctxMarker struct{}

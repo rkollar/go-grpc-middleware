@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/rkollar/go-grpc-middleware/util/metautils"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 )

@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/kit/ctxkit"
+	grpc_middleware "github.com/rkollar/go-grpc-middleware"
+	"github.com/rkollar/go-grpc-middleware/logging/kit/ctxkit"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )

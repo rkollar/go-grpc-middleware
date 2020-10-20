@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/kit"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_middleware "github.com/rkollar/go-grpc-middleware"
+	"github.com/rkollar/go-grpc-middleware/logging/kit"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
 
 	"google.golang.org/grpc"
 )

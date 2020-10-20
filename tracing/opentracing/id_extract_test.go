@@ -2,7 +2,7 @@ package grpc_opentracing
 
 import (
 	"fmt"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

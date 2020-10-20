@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	grpc_logging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	grpc_logging "github.com/rkollar/go-grpc-middleware/logging"
+	"github.com/rkollar/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 )

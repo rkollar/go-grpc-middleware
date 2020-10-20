@@ -3,7 +3,7 @@ package grpc_opentracing
 import (
 	"strings"
 
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
 	opentracing "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc/grpclog"
 )
