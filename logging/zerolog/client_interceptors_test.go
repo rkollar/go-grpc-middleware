@@ -1,4 +1,4 @@
-package grpc_zap_test
+package grpc_zerolog_test
 
 import (
 	"io"
@@ -10,37 +10,37 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
-	"go.uber.org/zap/zapcore"
+	grpc_zerolog "github.com/rkollar/go-grpc-middleware/logging/zerolog"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
+	"github.com/rs/zerolog"
 )
 
-func customClientCodeToLevel(c codes.Code) zapcore.Level {
+func customClientCodeToLevel(c codes.Code) zerolog.Level {
 	if c == codes.Unauthenticated {
 		// Make this a special case for tests, and an error.
-		return zapcore.ErrorLevel
+		return zerolog.ErrorLevel
 	}
-	level := grpc_zap.DefaultClientCodeToLevel(c)
+	level := grpc_zerolog.DefaultClientCodeToLevel(c)
 	return level
 }
 
 func TestZapClientSuite(t *testing.T) {
-	opts := []grpc_zap.Option{
-		grpc_zap.WithLevels(customClientCodeToLevel),
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithLevels(customClientCodeToLevel),
 	}
-	b := newBaseZapSuite(t)
+	b := newBaseZerologSuite(t)
 	b.InterceptorTestSuite.ClientOpts = []grpc.DialOption{
-		grpc.WithUnaryInterceptor(grpc_zap.UnaryClientInterceptor(b.log, opts...)),
-		grpc.WithStreamInterceptor(grpc_zap.StreamClientInterceptor(b.log, opts...)),
+		grpc.WithUnaryInterceptor(grpc_zerolog.UnaryClientInterceptor(b.log, opts...)),
+		grpc.WithStreamInterceptor(grpc_zerolog.StreamClientInterceptor(b.log, opts...)),
 	}
-	suite.Run(t, &zapClientSuite{b})
+	suite.Run(t, &zerologClientSuite{b})
 }
 
-type zapClientSuite struct {
-	*zapBaseSuite
+type zerologClientSuite struct {
+	*zerologBaseSuite
 }
 
-func (s *zapClientSuite) TestPing() {
+func (s *zerologClientSuite) TestPing() {
 	_, err := s.Client.Ping(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
 
@@ -55,7 +55,7 @@ func (s *zapClientSuite) TestPing() {
 	assert.Contains(s.T(), msgs[0], "grpc.time_ms", "interceptor log statement should contain execution time")
 }
 
-func (s *zapClientSuite) TestPingList() {
+func (s *zerologClientSuite) TestPingList() {
 	stream, err := s.Client.PingList(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "should not fail on establishing the stream")
 	for {
@@ -76,30 +76,30 @@ func (s *zapClientSuite) TestPingList() {
 	assert.Contains(s.T(), msgs[0], "grpc.time_ms", "handler's message must contain time in ms")
 }
 
-func (s *zapClientSuite) TestPingError_WithCustomLevels() {
+func (s *zerologClientSuite) TestPingError_WithCustomLevels() {
 	for _, tcase := range []struct {
 		code  codes.Code
-		level zapcore.Level
+		level zerolog.Level
 		msg   string
 	}{
 		{
 			code:  codes.Internal,
-			level: zapcore.WarnLevel,
+			level: zerolog.WarnLevel,
 			msg:   "Internal must remap to ErrorLevel in DefaultClientCodeToLevel",
 		},
 		{
 			code:  codes.NotFound,
-			level: zapcore.DebugLevel,
+			level: zerolog.DebugLevel,
 			msg:   "NotFound must remap to InfoLevel in DefaultClientCodeToLevel",
 		},
 		{
 			code:  codes.FailedPrecondition,
-			level: zapcore.DebugLevel,
+			level: zerolog.DebugLevel,
 			msg:   "FailedPrecondition must remap to WarnLevel in DefaultClientCodeToLevel",
 		},
 		{
 			code:  codes.Unauthenticated,
-			level: zapcore.ErrorLevel,
+			level: zerolog.ErrorLevel,
 			msg:   "Unauthenticated is overwritten to ErrorLevel with customClientCodeToLevel override, which probably didn't work",
 		},
 	} {
@@ -120,22 +120,22 @@ func (s *zapClientSuite) TestPingError_WithCustomLevels() {
 }
 
 func TestZapClientOverrideSuite(t *testing.T) {
-	opts := []grpc_zap.Option{
-		grpc_zap.WithDurationField(grpc_zap.DurationToDurationField),
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithDurationField(grpc_zerolog.DurationToField),
 	}
-	b := newBaseZapSuite(t)
+	b := newBaseZerologSuite(t)
 	b.InterceptorTestSuite.ClientOpts = []grpc.DialOption{
-		grpc.WithUnaryInterceptor(grpc_zap.UnaryClientInterceptor(b.log, opts...)),
-		grpc.WithStreamInterceptor(grpc_zap.StreamClientInterceptor(b.log, opts...)),
+		grpc.WithUnaryInterceptor(grpc_zerolog.UnaryClientInterceptor(b.log, opts...)),
+		grpc.WithStreamInterceptor(grpc_zerolog.StreamClientInterceptor(b.log, opts...)),
 	}
-	suite.Run(t, &zapClientOverrideSuite{b})
+	suite.Run(t, &zerologClientOverrideSuite{b})
 }
 
-type zapClientOverrideSuite struct {
-	*zapBaseSuite
+type zerologClientOverrideSuite struct {
+	*zerologBaseSuite
 }
 
-func (s *zapClientOverrideSuite) TestPing_HasOverrides() {
+func (s *zerologClientOverrideSuite) TestPing_HasOverrides() {
 	_, err := s.Client.Ping(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
 
@@ -150,7 +150,7 @@ func (s *zapClientOverrideSuite) TestPing_HasOverrides() {
 	assert.Contains(s.T(), msgs[0], "grpc.duration", "handler's message must contain overridden duration")
 }
 
-func (s *zapClientOverrideSuite) TestPingList_HasOverrides() {
+func (s *zerologClientOverrideSuite) TestPingList_HasOverrides() {
 	stream, err := s.Client.PingList(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "should not fail on establishing the stream")
 	for {
@@ -174,22 +174,22 @@ func (s *zapClientOverrideSuite) TestPingList_HasOverrides() {
 }
 
 func TestZapLoggingClientMessageProducerSuite(t *testing.T) {
-	opts := []grpc_zap.Option{
-		grpc_zap.WithMessageProducer(StubMessageProducer),
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithMessageProducer(StubMessageProducer),
 	}
-	b := newBaseZapSuite(t)
+	b := newBaseZerologSuite(t)
 	b.InterceptorTestSuite.ClientOpts = []grpc.DialOption{
-		grpc.WithUnaryInterceptor(grpc_zap.UnaryClientInterceptor(b.log, opts...)),
-		grpc.WithStreamInterceptor(grpc_zap.StreamClientInterceptor(b.log, opts...)),
+		grpc.WithUnaryInterceptor(grpc_zerolog.UnaryClientInterceptor(b.log, opts...)),
+		grpc.WithStreamInterceptor(grpc_zerolog.StreamClientInterceptor(b.log, opts...)),
 	}
-	suite.Run(t, &zapClientMessageProducerSuite{b})
+	suite.Run(t, &zerologClientMessageProducerSuite{b})
 }
 
-type zapClientMessageProducerSuite struct {
-	*zapBaseSuite
+type zerologClientMessageProducerSuite struct {
+	*zerologBaseSuite
 }
 
-func (s *zapClientMessageProducerSuite) TestPing_HasOverriddenMessageProducer() {
+func (s *zerologClientMessageProducerSuite) TestPing_HasOverriddenMessageProducer() {
 	_, err := s.Client.Ping(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
 

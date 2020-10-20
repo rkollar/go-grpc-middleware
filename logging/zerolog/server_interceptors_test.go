@@ -1,4 +1,4 @@
-package grpc_zap_test
+package grpc_zerolog_test
 
 import (
 	"io"
@@ -7,25 +7,24 @@ import (
 	"testing"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	grpc_middleware "github.com/rkollar/go-grpc-middleware"
+	grpc_zerolog "github.com/rkollar/go-grpc-middleware/logging/zerolog"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
 
-func customCodeToLevel(c codes.Code) zapcore.Level {
+func customCodeToLevel(c codes.Code) zerolog.Level {
 	if c == codes.Unauthenticated {
 		// Make this a special case for tests, and an error.
-		return zap.DPanicLevel
+		return zerolog.PanicLevel
 	}
-	level := grpc_zap.DefaultCodeToLevel(c)
+	level := grpc_zerolog.DefaultCodeToLevel(c)
 	return level
 }
 
@@ -34,26 +33,26 @@ func TestZapLoggingSuite(t *testing.T) {
 		t.Skipf("Skipping due to json.RawMessage incompatibility with go1.7")
 		return
 	}
-	opts := []grpc_zap.Option{
-		grpc_zap.WithLevels(customCodeToLevel),
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithLevels(customCodeToLevel),
 	}
-	b := newBaseZapSuite(t)
+	b := newBaseZerologSuite(t)
 	b.InterceptorTestSuite.ServerOpts = []grpc.ServerOption{
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.StreamServerInterceptor(b.log, opts...)),
+			grpc_zerolog.StreamServerInterceptor(b.log, opts...)),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.UnaryServerInterceptor(b.log, opts...)),
+			grpc_zerolog.UnaryServerInterceptor(b.log, opts...)),
 	}
-	suite.Run(t, &zapServerSuite{b})
+	suite.Run(t, &zerologServerSuite{b})
 }
 
-type zapServerSuite struct {
-	*zapBaseSuite
+type zerologServerSuite struct {
+	*zerologBaseSuite
 }
 
-func (s *zapServerSuite) TestPing_WithCustomTags() {
+func (s *zerologServerSuite) TestPing_WithCustomTags() {
 	deadline := time.Now().Add(3 * time.Second)
 	_, err := s.Client.Ping(s.DeadlineCtx(deadline), goodPing)
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
@@ -86,31 +85,31 @@ func (s *zapServerSuite) TestPing_WithCustomTags() {
 	assert.Contains(s.T(), msgs[1], "grpc.time_ms", "interceptor log statement should contain execution time")
 }
 
-func (s *zapServerSuite) TestPingError_WithCustomLevels() {
+func (s *zerologServerSuite) TestPingError_WithCustomLevels() {
 	for _, tcase := range []struct {
 		code  codes.Code
-		level zapcore.Level
+		level zerolog.Level
 		msg   string
 	}{
 		{
 			code:  codes.Internal,
-			level: zap.ErrorLevel,
+			level: zerolog.ErrorLevel,
 			msg:   "Internal must remap to ErrorLevel in DefaultCodeToLevel",
 		},
 		{
 			code:  codes.NotFound,
-			level: zap.InfoLevel,
+			level: zerolog.InfoLevel,
 			msg:   "NotFound must remap to InfoLevel in DefaultCodeToLevel",
 		},
 		{
 			code:  codes.FailedPrecondition,
-			level: zap.WarnLevel,
+			level: zerolog.WarnLevel,
 			msg:   "FailedPrecondition must remap to WarnLevel in DefaultCodeToLevel",
 		},
 		{
 			code:  codes.Unauthenticated,
-			level: zap.DPanicLevel,
-			msg:   "Unauthenticated is overwritten to DPanicLevel with customCodeToLevel override, which probably didn't work",
+			level: zerolog.PanicLevel,
+			msg:   "Unauthenticated is overwritten to PanicLevel with customCodeToLevel override, which probably didn't work",
 		},
 	} {
 		s.buffer.Reset()
@@ -135,7 +134,7 @@ func (s *zapServerSuite) TestPingError_WithCustomLevels() {
 	}
 }
 
-func (s *zapServerSuite) TestPingList_WithCustomTags() {
+func (s *zerologServerSuite) TestPingList_WithCustomTags() {
 	stream, err := s.Client.PingList(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "should not fail on establishing the stream")
 	for {
@@ -173,26 +172,26 @@ func TestZapLoggingOverrideSuite(t *testing.T) {
 		t.Skip("Skipping due to json.RawMessage incompatibility with go1.7")
 		return
 	}
-	opts := []grpc_zap.Option{
-		grpc_zap.WithDurationField(grpc_zap.DurationToDurationField),
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithDurationField(grpc_zerolog.DurationToField),
 	}
-	b := newBaseZapSuite(t)
+	b := newBaseZerologSuite(t)
 	b.InterceptorTestSuite.ServerOpts = []grpc.ServerOption{
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(),
-			grpc_zap.StreamServerInterceptor(b.log, opts...)),
+			grpc_zerolog.StreamServerInterceptor(b.log, opts...)),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(),
-			grpc_zap.UnaryServerInterceptor(b.log, opts...)),
+			grpc_zerolog.UnaryServerInterceptor(b.log, opts...)),
 	}
-	suite.Run(t, &zapServerOverrideSuite{b})
+	suite.Run(t, &zerologServerOverrideSuite{b})
 }
 
-type zapServerOverrideSuite struct {
-	*zapBaseSuite
+type zerologServerOverrideSuite struct {
+	*zerologBaseSuite
 }
 
-func (s *zapServerOverrideSuite) TestPing_HasOverriddenDuration() {
+func (s *zerologServerOverrideSuite) TestPing_HasOverriddenDuration() {
 	_, err := s.Client.Ping(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
 	msgs := s.getOutputJSONs()
@@ -212,7 +211,7 @@ func (s *zapServerOverrideSuite) TestPing_HasOverriddenDuration() {
 	assert.Contains(s.T(), msgs[1], "grpc.duration", "handler's message must contain overridden duration")
 }
 
-func (s *zapServerOverrideSuite) TestPingList_HasOverriddenDuration() {
+func (s *zerologServerOverrideSuite) TestPingList_HasOverriddenDuration() {
 	stream, err := s.Client.PingList(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "should not fail on establishing the stream")
 	for {
@@ -245,31 +244,31 @@ func TestZapServerOverrideSuppressedSuite(t *testing.T) {
 		t.Skip("Skipping due to json.RawMessage incompatibility with go1.7")
 		return
 	}
-	opts := []grpc_zap.Option{
-		grpc_zap.WithDecider(func(method string, err error) bool {
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithDecider(func(method string, err error) bool {
 			if err != nil && method == "/mwitkow.testproto.TestService/PingError" {
 				return true
 			}
 			return false
 		}),
 	}
-	b := newBaseZapSuite(t)
+	b := newBaseZerologSuite(t)
 	b.InterceptorTestSuite.ServerOpts = []grpc.ServerOption{
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(),
-			grpc_zap.StreamServerInterceptor(b.log, opts...)),
+			grpc_zerolog.StreamServerInterceptor(b.log, opts...)),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(),
-			grpc_zap.UnaryServerInterceptor(b.log, opts...)),
+			grpc_zerolog.UnaryServerInterceptor(b.log, opts...)),
 	}
-	suite.Run(t, &zapServerOverriddenDeciderSuite{b})
+	suite.Run(t, &zerologServerOverriddenDeciderSuite{b})
 }
 
-type zapServerOverriddenDeciderSuite struct {
-	*zapBaseSuite
+type zerologServerOverriddenDeciderSuite struct {
+	*zerologBaseSuite
 }
 
-func (s *zapServerOverriddenDeciderSuite) TestPing_HasOverriddenDecider() {
+func (s *zerologServerOverriddenDeciderSuite) TestPing_HasOverriddenDecider() {
 	_, err := s.Client.Ping(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
 	msgs := s.getOutputJSONs()
@@ -280,9 +279,9 @@ func (s *zapServerOverriddenDeciderSuite) TestPing_HasOverriddenDecider() {
 	assert.Equal(s.T(), msgs[0]["msg"], "some ping", "handler's message must contain user message")
 }
 
-func (s *zapServerOverriddenDeciderSuite) TestPingError_HasOverriddenDecider() {
+func (s *zerologServerOverriddenDeciderSuite) TestPingError_HasOverriddenDecider() {
 	code := codes.NotFound
-	level := zapcore.InfoLevel
+	level := zerolog.InfoLevel
 	msg := "NotFound must remap to InfoLevel in DefaultCodeToLevel"
 
 	s.buffer.Reset()
@@ -299,7 +298,7 @@ func (s *zapServerOverriddenDeciderSuite) TestPingError_HasOverriddenDecider() {
 	assert.Equal(s.T(), m["level"], level.String(), msg)
 }
 
-func (s *zapServerOverriddenDeciderSuite) TestPingList_HasOverriddenDecider() {
+func (s *zerologServerOverriddenDeciderSuite) TestPingList_HasOverriddenDecider() {
 	stream, err := s.Client.PingList(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "should not fail on establishing the stream")
 	for {
@@ -325,26 +324,26 @@ func TestZapLoggingServerMessageProducerSuite(t *testing.T) {
 		t.Skip("Skipping due to json.RawMessage incompatibility with go1.7")
 		return
 	}
-	opts := []grpc_zap.Option{
-		grpc_zap.WithMessageProducer(StubMessageProducer),
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithMessageProducer(StubMessageProducer),
 	}
-	b := newBaseZapSuite(t)
+	b := newBaseZerologSuite(t)
 	b.InterceptorTestSuite.ServerOpts = []grpc.ServerOption{
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(),
-			grpc_zap.StreamServerInterceptor(b.log, opts...)),
+			grpc_zerolog.StreamServerInterceptor(b.log, opts...)),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(),
-			grpc_zap.UnaryServerInterceptor(b.log, opts...)),
+			grpc_zerolog.UnaryServerInterceptor(b.log, opts...)),
 	}
-	suite.Run(t, &zapServerMessageProducerSuite{b})
+	suite.Run(t, &zerologServerMessageProducerSuite{b})
 }
 
-type zapServerMessageProducerSuite struct {
-	*zapBaseSuite
+type zerologServerMessageProducerSuite struct {
+	*zerologBaseSuite
 }
 
-func (s *zapServerMessageProducerSuite) TestPing_HasOverriddenMessageProducer() {
+func (s *zerologServerMessageProducerSuite) TestPing_HasOverriddenMessageProducer() {
 	_, err := s.Client.Ping(s.SimpleCtx(), goodPing)
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
 	msgs := s.getOutputJSONs()

@@ -1,4 +1,4 @@
-package grpc_zap_test
+package grpc_zerolog_test
 
 import (
 	"context"
@@ -10,15 +10,14 @@ import (
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	"github.com/rkollar/go-grpc-middleware"
+	"github.com/rkollar/go-grpc-middleware/tags"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/rkollar/go-grpc-middleware/logging/zerolog"
 )
 
 func TestZapPayloadSuite(t *testing.T) {
@@ -30,30 +29,29 @@ func TestZapPayloadSuite(t *testing.T) {
 	alwaysLoggingDeciderServer := func(ctx context.Context, fullMethodName string, servingObject interface{}) bool { return true }
 	alwaysLoggingDeciderClient := func(ctx context.Context, fullMethodName string) bool { return true }
 
-	b := newBaseZapSuite(t)
+	b := newBaseZerologSuite(t)
 	b.InterceptorTestSuite.ClientOpts = []grpc.DialOption{
-		grpc.WithUnaryInterceptor(grpc_zap.PayloadUnaryClientInterceptor(b.log, alwaysLoggingDeciderClient)),
-		grpc.WithStreamInterceptor(grpc_zap.PayloadStreamClientInterceptor(b.log, alwaysLoggingDeciderClient)),
+		grpc.WithUnaryInterceptor(grpc_zerolog.PayloadUnaryClientInterceptor(b.log, alwaysLoggingDeciderClient)),
+		grpc.WithStreamInterceptor(grpc_zerolog.PayloadStreamClientInterceptor(b.log, alwaysLoggingDeciderClient)),
 	}
-	noOpZap := zap.New(zapcore.NewNopCore())
 	b.InterceptorTestSuite.ServerOpts = []grpc.ServerOption{
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.StreamServerInterceptor(noOpZap),
-			grpc_zap.PayloadStreamServerInterceptor(b.log, alwaysLoggingDeciderServer)),
+			grpc_zerolog.StreamServerInterceptor(zerolog.Nop()),
+			grpc_zerolog.PayloadStreamServerInterceptor(b.log, alwaysLoggingDeciderServer)),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.UnaryServerInterceptor(noOpZap),
-			grpc_zap.PayloadUnaryServerInterceptor(b.log, alwaysLoggingDeciderServer)),
+			grpc_zerolog.UnaryServerInterceptor(zerolog.Nop()),
+			grpc_zerolog.PayloadUnaryServerInterceptor(b.log, alwaysLoggingDeciderServer)),
 	}
-	suite.Run(t, &zapPayloadSuite{b})
+	suite.Run(t, &zerologPayloadSuite{b})
 }
 
-type zapPayloadSuite struct {
-	*zapBaseSuite
+type zerologPayloadSuite struct {
+	*zerologBaseSuite
 }
 
-func (s *zapPayloadSuite) getServerAndClientMessages(expectedServer int, expectedClient int) (serverMsgs []map[string]interface{}, clientMsgs []map[string]interface{}) {
+func (s *zerologPayloadSuite) getServerAndClientMessages(expectedServer int, expectedClient int) (serverMsgs []map[string]interface{}, clientMsgs []map[string]interface{}) {
 	msgs := s.getOutputJSONs()
 	for _, m := range msgs {
 		if m["span.kind"] == "server" {
@@ -67,7 +65,7 @@ func (s *zapPayloadSuite) getServerAndClientMessages(expectedServer int, expecte
 	return serverMsgs, clientMsgs
 }
 
-func (s *zapPayloadSuite) TestPing_LogsBothRequestAndResponse() {
+func (s *zerologPayloadSuite) TestPing_LogsBothRequestAndResponse() {
 	_, err := s.Client.Ping(s.SimpleCtx(), goodPing)
 
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
@@ -87,7 +85,7 @@ func (s *zapPayloadSuite) TestPing_LogsBothRequestAndResponse() {
 	assert.Contains(s.T(), serverResp, "grpc.response.content", "response payload must be logged in a structured way")
 }
 
-func (s *zapPayloadSuite) TestPingError_LogsOnlyRequestsOnError() {
+func (s *zerologPayloadSuite) TestPingError_LogsOnlyRequestsOnError() {
 	_, err := s.Client.PingError(s.SimpleCtx(), &pb_testproto.PingRequest{Value: "something", ErrorCodeReturned: uint32(4)})
 
 	require.Error(s.T(), err, "there must be an error on an unsuccessful call")
@@ -102,7 +100,7 @@ func (s *zapPayloadSuite) TestPingError_LogsOnlyRequestsOnError() {
 	assert.Contains(s.T(), serverMsgs[0], "grpc.request.content", "request payload must be logged in a structured way")
 }
 
-func (s *zapPayloadSuite) TestPingStream_LogsAllRequestsAndResponses() {
+func (s *zerologPayloadSuite) TestPingStream_LogsAllRequestsAndResponses() {
 	messagesExpected := 20
 	stream, err := s.Client.PingStream(s.SimpleCtx())
 

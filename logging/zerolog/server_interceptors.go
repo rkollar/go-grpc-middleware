@@ -1,27 +1,30 @@
-package grpc_zap
+package grpc_zerolog
 
 import (
 	"context"
 	"path"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	grpc_middleware "github.com/rkollar/go-grpc-middleware"
+	"github.com/rkollar/go-grpc-middleware/logging/zerolog/ctxzerolog"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 )
 
 var (
-	// SystemField is used in every log statement made through grpc_zap. Can be overwritten before any initialization code.
-	SystemField = zap.String("system", "grpc")
+	// SystemField is used in every log statement made through grpc_zerolog. Can be overwritten before any initialization code.
+	SystemField = func(c zerolog.Context) zerolog.Context {
+		return c.Str("system", "grpc")
+	}
 
-	// ServerField is used in every server-side log statement made through grpc_zap.Can be overwritten before initialization.
-	ServerField = zap.String("span.kind", "server")
+	// ServerField is used in every server-side log statement made through grpc_zerolog.Can be overwritten before initialization.
+	ServerField = func(c zerolog.Context) zerolog.Context {
+		return c.Str("span.kind", "server")
+	}
 )
 
-// UnaryServerInterceptor returns a new unary server interceptors that adds zap.Logger to the context.
-func UnaryServerInterceptor(logger *zap.Logger, opts ...Option) grpc.UnaryServerInterceptor {
+// UnaryServerInterceptor returns a new unary server interceptors that adds zerolog.Logger to the context.
+func UnaryServerInterceptor(logger zerolog.Logger, opts ...Option) grpc.UnaryServerInterceptor {
 	o := evaluateServerOpt(opts)
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		startTime := time.Now()
@@ -41,8 +44,8 @@ func UnaryServerInterceptor(logger *zap.Logger, opts ...Option) grpc.UnaryServer
 	}
 }
 
-// StreamServerInterceptor returns a new streaming server interceptor that adds zap.Logger to the context.
-func StreamServerInterceptor(logger *zap.Logger, opts ...Option) grpc.StreamServerInterceptor {
+// StreamServerInterceptor returns a new streaming server interceptor that adds zerolog.Logger to the context.
+func StreamServerInterceptor(logger zerolog.Logger, opts ...Option) grpc.StreamServerInterceptor {
 	o := evaluateServerOpt(opts)
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		startTime := time.Now()
@@ -63,23 +66,23 @@ func StreamServerInterceptor(logger *zap.Logger, opts ...Option) grpc.StreamServ
 	}
 }
 
-func serverCallFields(fullMethodString string) []zapcore.Field {
+func addServerCallFields(fullMethodString string, zerologCtx zerolog.Context) zerolog.Context {
 	service := path.Dir(fullMethodString)[1:]
 	method := path.Base(fullMethodString)
-	return []zapcore.Field{
-		SystemField,
-		ServerField,
-		zap.String("grpc.service", service),
-		zap.String("grpc.method", method),
-	}
+	zerologCtx = SystemField(zerologCtx)
+	zerologCtx = ServerField(zerologCtx)
+	return zerologCtx.
+		Str("grpc.service", service).
+		Str("grpc.method", method)
 }
 
-func newLoggerForCall(ctx context.Context, logger *zap.Logger, fullMethodString string, start time.Time) context.Context {
-	var f []zapcore.Field
-	f = append(f, zap.String("grpc.start_time", start.Format(time.RFC3339)))
+func newLoggerForCall(ctx context.Context, logger zerolog.Logger, fullMethodString string, start time.Time) context.Context {
+	zerologCtx := logger.With()
+	zerologCtx = zerologCtx.Str("grpc.start_time", start.Format(time.RFC3339))
 	if d, ok := ctx.Deadline(); ok {
-		f = append(f, zap.String("grpc.request.deadline", d.Format(time.RFC3339)))
+		zerologCtx = zerologCtx.Str("grpc.request.deadline", d.Format(time.RFC3339))
 	}
-	callLog := logger.With(append(f, serverCallFields(fullMethodString)...)...)
-	return ctxzap.ToContext(ctx, callLog)
+
+	zerologCtx = addServerCallFields(fullMethodString, zerologCtx)
+	return ctxzerolog.ToContext(ctx, zerologCtx.Logger())
 }

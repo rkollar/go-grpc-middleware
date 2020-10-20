@@ -1,61 +1,60 @@
-package grpc_zap_test
+package grpc_zerolog_test
 
 import (
 	"context"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	grpc_middleware "github.com/rkollar/go-grpc-middleware"
+	grpc_zerolog "github.com/rkollar/go-grpc-middleware/logging/zerolog"
+	"github.com/rkollar/go-grpc-middleware/logging/zerolog/ctxzerolog"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 )
 
 var (
-	zapLogger  *zap.Logger
-	customFunc grpc_zap.CodeToLevel
+	zerologLogger zerolog.Logger
+	customFunc    grpc_zerolog.CodeToLevel
 )
 
 // Initialization shows a relatively complex initialization sequence.
 func Example_initialization() {
 	// Shared options for the logger, with a custom gRPC code to log level function.
-	opts := []grpc_zap.Option{
-		grpc_zap.WithLevels(customFunc),
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithLevels(customFunc),
 	}
-	// Make sure that log statements internal to gRPC library are logged using the zapLogger as well.
-	grpc_zap.ReplaceGrpcLoggerV2(zapLogger)
+	// Make sure that log statements internal to gRPC library are logged using the zerologLogger as well.
+	grpc_zerolog.ReplaceGrpcLoggerV2(zerologLogger)
 	// Create a server, make sure we put the grpc_ctxtags context before everything else.
 	_ = grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.UnaryServerInterceptor(zapLogger, opts...),
+			grpc_zerolog.UnaryServerInterceptor(zerologLogger, opts...),
 		),
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
-			grpc_zap.StreamServerInterceptor(zapLogger, opts...),
+			grpc_zerolog.StreamServerInterceptor(zerologLogger, opts...),
 		),
 	)
 }
 
 // Initialization shows an initialization sequence with the duration field generation overridden.
 func Example_initializationWithDurationFieldOverride() {
-	opts := []grpc_zap.Option{
-		grpc_zap.WithDurationField(func(duration time.Duration) zapcore.Field {
-			return zap.Int64("grpc.time_ns", duration.Nanoseconds())
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithDurationField(func(duration time.Duration) map[string]interface{} {
+			return map[string]interface{}{"grpc.time_ns": duration.Nanoseconds()}
 		}),
 	}
 
 	_ = grpc.NewServer(
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(),
-			grpc_zap.UnaryServerInterceptor(zapLogger, opts...),
+			grpc_zerolog.UnaryServerInterceptor(zerologLogger, opts...),
 		),
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(),
-			grpc_zap.StreamServerInterceptor(zapLogger, opts...),
+			grpc_zerolog.StreamServerInterceptor(zerologLogger, opts...),
 		),
 	)
 }
@@ -66,17 +65,17 @@ func ExampleExtract_unary() {
 		// Add fields the ctxtags of the request which will be added to all extracted loggers.
 		grpc_ctxtags.Extract(ctx).Set("custom_tags.string", "something").Set("custom_tags.int", 1337)
 
-		// Extract a single request-scoped zap.Logger and log messages. (containing the grpc.xxx tags)
-		l := ctxzap.Extract(ctx)
-		l.Info("some ping")
-		l.Info("another ping")
+		// Extract a single request-scoped zerolog.Logger and log messages. (containing the grpc.xxx tags)
+		l := ctxzerolog.Extract(ctx)
+		l.Info().Msg("some ping")
+		l.Info().Msg("another ping")
 		return &pb_testproto.PingResponse{Value: ping.Value}, nil
 	}
 }
 
 func Example_initializationWithDecider() {
-	opts := []grpc_zap.Option{
-		grpc_zap.WithDecider(func(fullMethodName string, err error) bool {
+	opts := []grpc_zerolog.Option{
+		grpc_zerolog.WithDecider(func(fullMethodName string, err error) bool {
 			// will not log gRPC calls if it was a call to healthcheck and no error was raised
 			if err == nil && fullMethodName == "foo.bar.healthcheck" {
 				return false
@@ -90,9 +89,9 @@ func Example_initializationWithDecider() {
 	_ = []grpc.ServerOption{
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(),
-			grpc_zap.StreamServerInterceptor(zap.NewNop(), opts...)),
+			grpc_zerolog.StreamServerInterceptor(zerolog.Nop(), opts...)),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(),
-			grpc_zap.UnaryServerInterceptor(zap.NewNop(), opts...)),
+			grpc_zerolog.UnaryServerInterceptor(zerolog.Nop(), opts...)),
 	}
 }

@@ -3,7 +3,7 @@ package ctxzerolog
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/rkollar/go-grpc-middleware/tags"
 	"github.com/rs/zerolog"
 )
 
@@ -62,6 +62,7 @@ func TagsToFields(ctx context.Context) map[string]interface{} {
 func ToContext(ctx context.Context, logger zerolog.Logger) context.Context {
 	l := &ctxLogger{
 		logger: logger,
+		fields: make(map[string]interface{}),
 	}
 	return context.WithValue(ctx, ctxMarkerKey, l)
 }

@@ -3,9 +3,9 @@ package ctxzerolog_test
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zerolog/ctxzerolog"
-	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
+	"github.com/rkollar/go-grpc-middleware/logging/zerolog/ctxzerolog"
+	"github.com/rkollar/go-grpc-middleware/tags"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
 	"github.com/rs/zerolog"
 )
 

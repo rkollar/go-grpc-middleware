@@ -1,13 +1,12 @@
-package grpc_zap
+package grpc_zerolog
 
 import (
 	"context"
 	"time"
 
-	grpc_logging "github.com/grpc-ecosystem/go-grpc-middleware/logging"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	grpc_logging "github.com/rkollar/go-grpc-middleware/logging"
+	"github.com/rkollar/go-grpc-middleware/logging/zerolog/ctxzerolog"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 )
 
@@ -25,7 +24,7 @@ type options struct {
 	levelFunc    CodeToLevel
 	shouldLog    grpc_logging.Decider
 	codeFunc     grpc_logging.ErrorToCode
-	durationFunc DurationToField
+	durationFunc DurationToMap
 	messageFunc  MessageProducer
 }
 
@@ -52,10 +51,10 @@ func evaluateClientOpt(opts []Option) *options {
 type Option func(*options)
 
 // CodeToLevel function defines the mapping between gRPC return codes and interceptor log level.
-type CodeToLevel func(code codes.Code) zapcore.Level
+type CodeToLevel func(code codes.Code) zerolog.Level
 
 // DurationToField function defines how to produce duration fields for logging
-type DurationToField func(duration time.Duration) zapcore.Field
+type DurationToMap func(duration time.Duration) map[string]interface{}
 
 // WithDecider customizes the function for deciding if the gRPC interceptor logs should log.
 func WithDecider(f grpc_logging.Decider) Option {
@@ -79,7 +78,7 @@ func WithCodes(f grpc_logging.ErrorToCode) Option {
 }
 
 // WithDurationField customizes the function for mapping request durations to Zap fields.
-func WithDurationField(f DurationToField) Option {
+func WithDurationField(f DurationToMap) Option {
 	return func(o *options) {
 		o.durationFunc = f
 	}
@@ -93,101 +92,105 @@ func WithMessageProducer(f MessageProducer) Option {
 }
 
 // DefaultCodeToLevel is the default implementation of gRPC return codes and interceptor log level for server side.
-func DefaultCodeToLevel(code codes.Code) zapcore.Level {
+func DefaultCodeToLevel(code codes.Code) zerolog.Level {
 	switch code {
 	case codes.OK:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	case codes.Canceled:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	case codes.Unknown:
-		return zap.ErrorLevel
+		return zerolog.ErrorLevel
 	case codes.InvalidArgument:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	case codes.DeadlineExceeded:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.NotFound:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	case codes.AlreadyExists:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	case codes.PermissionDenied:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.Unauthenticated:
-		return zap.InfoLevel // unauthenticated requests can happen
+		return zerolog.InfoLevel // unauthenticated requests can happen
 	case codes.ResourceExhausted:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.FailedPrecondition:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.Aborted:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.OutOfRange:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.Unimplemented:
-		return zap.ErrorLevel
+		return zerolog.ErrorLevel
 	case codes.Internal:
-		return zap.ErrorLevel
+		return zerolog.ErrorLevel
 	case codes.Unavailable:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.DataLoss:
-		return zap.ErrorLevel
+		return zerolog.ErrorLevel
 	default:
-		return zap.ErrorLevel
+		return zerolog.ErrorLevel
 	}
 }
 
 // DefaultClientCodeToLevel is the default implementation of gRPC return codes to log levels for client side.
-func DefaultClientCodeToLevel(code codes.Code) zapcore.Level {
+func DefaultClientCodeToLevel(code codes.Code) zerolog.Level {
 	switch code {
 	case codes.OK:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.Canceled:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.Unknown:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	case codes.InvalidArgument:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.DeadlineExceeded:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	case codes.NotFound:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.AlreadyExists:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.PermissionDenied:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	case codes.Unauthenticated:
-		return zap.InfoLevel // unauthenticated requests can happen
+		return zerolog.InfoLevel // unauthenticated requests can happen
 	case codes.ResourceExhausted:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.FailedPrecondition:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.Aborted:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.OutOfRange:
-		return zap.DebugLevel
+		return zerolog.DebugLevel
 	case codes.Unimplemented:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.Internal:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.Unavailable:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	case codes.DataLoss:
-		return zap.WarnLevel
+		return zerolog.WarnLevel
 	default:
-		return zap.InfoLevel
+		return zerolog.InfoLevel
 	}
 }
 
 // DefaultDurationToField is the default implementation of converting request duration to a Zap field.
-var DefaultDurationToField = DurationToTimeMillisField
+var DefaultDurationToField = DurationToTimeMillis
 
 // DurationToTimeMillisField converts the duration to milliseconds and uses the key `grpc.time_ms`.
-func DurationToTimeMillisField(duration time.Duration) zapcore.Field {
-	return zap.Float32("grpc.time_ms", durationToMilliseconds(duration))
+func DurationToTimeMillis(duration time.Duration) map[string]interface{} {
+	return map[string]interface{}{"grpc.time_ms": durationToMilliseconds(duration)}
 }
+
+/*func AddDuration(c zerolog.Context, duration time.Duration) zerolog.Context {
+	return c.Dur("grpc.duration", duration)
+}*/
 
 // DurationToDurationField uses a Duration field to log the request duration
 // and leaves it up to Zap's encoder settings to determine how that is output.
-func DurationToDurationField(duration time.Duration) zapcore.Field {
-	return zap.Duration("grpc.duration", duration)
+func DurationToField(duration time.Duration) map[string]interface{} {
+	return map[string]interface{}{"grpc.duration": duration}
 }
 
 func durationToMilliseconds(duration time.Duration) float32 {
@@ -195,14 +198,18 @@ func durationToMilliseconds(duration time.Duration) float32 {
 }
 
 // MessageProducer produces a user defined log message
-type MessageProducer func(ctx context.Context, msg string, level zapcore.Level, code codes.Code, err error, duration zapcore.Field)
+type MessageProducer func(ctx context.Context, msg string, level zerolog.Level, code codes.Code, err error, duration map[string]interface{})
 
 // DefaultMessageProducer writes the default message
-func DefaultMessageProducer(ctx context.Context, msg string, level zapcore.Level, code codes.Code, err error, duration zapcore.Field) {
+func DefaultMessageProducer(ctx context.Context, msg string, level zerolog.Level, code codes.Code, err error, duration map[string]interface{}) {
 	// re-extract logger from newCtx, as it may have extra fields that changed in the holder.
-	ctxzap.Extract(ctx).Check(level, msg).Write(
-		zap.Error(err),
-		zap.String("grpc.code", code.String()),
-		duration,
-	)
+	l := ctxzerolog.Extract(ctx)
+	c := l.WithLevel(level)
+	for k, v := range duration {
+		c = c.Interface(k, v)
+	}
+	c.
+		Err(err).
+		Stringer("grpc.code", code).
+		Msg(msg)
 }

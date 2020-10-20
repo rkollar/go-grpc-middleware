@@ -1,4 +1,4 @@
-package grpc_zap_test
+package grpc_zerolog_test
 
 import (
 	"bytes"
@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"io"
 	"testing"
+	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	grpc_testing "github.com/grpc-ecosystem/go-grpc-middleware/testing"
-	pb_testproto "github.com/grpc-ecosystem/go-grpc-middleware/testing/testproto"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/rkollar/go-grpc-middleware/logging/zerolog/ctxzerolog"
+	grpc_ctxtags "github.com/rkollar/go-grpc-middleware/tags"
+	grpc_testing "github.com/rkollar/go-grpc-middleware/testing"
+	pb_testproto "github.com/rkollar/go-grpc-middleware/testing/testproto"
+	"github.com/rs/zerolog"
 	"google.golang.org/grpc/codes"
 )
 
@@ -26,8 +26,9 @@ type loggingPingService struct {
 
 func (s *loggingPingService) Ping(ctx context.Context, ping *pb_testproto.PingRequest) (*pb_testproto.PingResponse, error) {
 	grpc_ctxtags.Extract(ctx).Set("custom_tags.string", "something").Set("custom_tags.int", 1337)
-	ctxzap.AddFields(ctx, zap.String("custom_field", "custom_value"))
-	ctxzap.Extract(ctx).Info("some ping")
+	ctxzerolog.AddFields(ctx, map[string]interface{}{"custom_field": "custom_value"})
+	l := ctxzerolog.Extract(ctx)
+	l.Info().Msg("some ping")
 	return s.TestServiceServer.Ping(ctx, ping)
 }
 
@@ -37,7 +38,8 @@ func (s *loggingPingService) PingError(ctx context.Context, ping *pb_testproto.P
 
 func (s *loggingPingService) PingList(ping *pb_testproto.PingRequest, stream pb_testproto.TestService_PingListServer) error {
 	grpc_ctxtags.Extract(stream.Context()).Set("custom_tags.string", "something").Set("custom_tags.int", 1337)
-	ctxzap.Extract(stream.Context()).Info("some pinglist")
+	l := ctxzerolog.Extract(stream.Context())
+	l.Info().Msg("some pinglist")
 	return s.TestServiceServer.PingList(ping, stream)
 }
 
@@ -45,27 +47,24 @@ func (s *loggingPingService) PingEmpty(ctx context.Context, empty *pb_testproto.
 	return s.TestServiceServer.PingEmpty(ctx, empty)
 }
 
-func newBaseZapSuite(t *testing.T) *zapBaseSuite {
-	b := &bytes.Buffer{}
-	muB := grpc_testing.NewMutexReadWriter(b)
-	zap.NewDevelopmentConfig()
-	jsonEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{
-		TimeKey:        "ts",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.EpochTimeEncoder,
-		EncodeDuration: zapcore.SecondsDurationEncoder,
-	})
-	core := zapcore.NewCore(jsonEncoder, zapcore.AddSync(muB), zap.LevelEnablerFunc(func(zapcore.Level) bool { return true }))
-	log := zap.New(core)
-	s := &zapBaseSuite{
-		log:         log,
-		buffer:      b,
-		mutexBuffer: muB,
+func newBaseZerologSuite(t *testing.T) *zerologBaseSuite {
+	buffer := &bytes.Buffer{}
+	mutexBuffer := grpc_testing.NewMutexReadWriter(buffer)
+
+	zerolog.TimestampFieldName = "ts"
+	zerolog.LevelFieldName = "level"
+	zerolog.MessageFieldName = "msg"
+	zerolog.ErrorFieldName = "error"
+	zerolog.CallerFieldName = "caller"
+	zerolog.ErrorStackFieldName = "stacktrace"
+	zerolog.TimeFieldFormat = time.RFC3339
+
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	var logger = zerolog.New(mutexBuffer).With().Timestamp().Logger()
+	s := &zerologBaseSuite{
+		log:         logger,
+		buffer:      buffer,
+		mutexBuffer: mutexBuffer,
 		InterceptorTestSuite: &grpc_testing.InterceptorTestSuite{
 			TestService: &loggingPingService{&grpc_testing.TestPingService{T: t}},
 		},
@@ -73,20 +72,20 @@ func newBaseZapSuite(t *testing.T) *zapBaseSuite {
 	return s
 }
 
-type zapBaseSuite struct {
+type zerologBaseSuite struct {
 	*grpc_testing.InterceptorTestSuite
 	mutexBuffer *grpc_testing.MutexReadWriter
 	buffer      *bytes.Buffer
-	log         *zap.Logger
+	log         zerolog.Logger
 }
 
-func (s *zapBaseSuite) SetupTest() {
+func (s *zerologBaseSuite) SetupTest() {
 	s.mutexBuffer.Lock()
 	s.buffer.Reset()
 	s.mutexBuffer.Unlock()
 }
 
-func (s *zapBaseSuite) getOutputJSONs() []map[string]interface{} {
+func (s *zerologBaseSuite) getOutputJSONs() []map[string]interface{} {
 	ret := make([]map[string]interface{}, 0)
 	dec := json.NewDecoder(s.mutexBuffer)
 
@@ -97,7 +96,7 @@ func (s *zapBaseSuite) getOutputJSONs() []map[string]interface{} {
 			break
 		}
 		if err != nil {
-			s.T().Fatalf("failed decoding output from Logrus JSON: %v", err)
+			s.T().Fatalf("failed decoding output from zerolog JSON: %v", err)
 		}
 
 		ret = append(ret, val)
@@ -106,11 +105,12 @@ func (s *zapBaseSuite) getOutputJSONs() []map[string]interface{} {
 	return ret
 }
 
-func StubMessageProducer(ctx context.Context, msg string, level zapcore.Level, code codes.Code, err error, duration zapcore.Field) {
-	// re-extract logger from newCtx, as it may have extra fields that changed in the holder.
-	ctxzap.Extract(ctx).Check(level, "custom message").Write(
-		zap.Error(err),
-		zap.String("grpc.code", code.String()),
-		duration,
-	)
+func StubMessageProducer(ctx context.Context, msg string, level zerolog.Level, code codes.Code, err error, duration map[string]interface{}) {
+	// re-extract logger from ctx, as it may have extra fields that changed in the holder.
+	l := ctxzerolog.Extract(ctx)
+	l.WithLevel(level).
+		Fields(duration).
+		Err(err).
+		Str("grpc.code", code.String()).
+		Msg("custom message")
 }
